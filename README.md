@@ -1,50 +1,35 @@
 create_index - A tool for creating indices of files.
 
-Syntax:
-    ./create_index [OPTIONS] <input_filename> <output_filename>
+General information
+===================
 
-Creates an file of fixed size indices of the positions of target characters. It
-may useful for repeatedly splitting up a file by arbitrary boundaries. To split 
-a file once in a specific boundaries, see the `split' command.
+Creates a file of fixed size indices of the positions of target characters. It may useful for repeatedly splitting up a file by arbitrary boundaries. Examples of where it could be useful is for answering aggregation queries on item ranges, and splitting up work from an ASCII file to multiple processors.
 
-Options:
-    --help               Prints this message.
-    --include-zero       This enforces the indexer to write out a 0 at the 
-                         beginning of the index. By default, this is disabled.
-    --size=<size_type>   This sets the index type to use for the output file.
-                         The available values are:
-                          * 8
-                                  Use a 8-bit unsigned integer.
-                          * 16
-                                  Use a 16-bit unsigned integer.
-                          * 32
-                                  Use a 32-bit unsigned integer. This is the
-                                  default.
-                          * 64
-                                  Use a 64-bit unsigned integer.
-                         All other options are invalid. Overflow is handled by
-                         wrapping around to zero.
-    --target=<chr>       The character to index on. By default this is a 
-                         newline character. Simple escape codes are permitted.
-Arguments:
-    <input_filename>     The name of the input filename. Input can be read from
-                         stdin by specifying -.
-    <output_filename>    The name of the output filename. output can be written
-                         to stdout by specifying -, but be warned, it is likely
-                         to contain arbitrary binary.
-                         
-Example usage:
-  # Search for all newline characters in stdin and write them out on stdout as
-    32-bit indices.
-  ./create_index - -
+The code has been somewhat written for performance and has been clocked at approximately 2.5GB/s on an input file, however the performance is dependent on the average density of target characters, whether the file is in OS cache, the speed of your disk etc. Most of the work is done by a memchr call which is usually implemented to take advantage of CPU features.
 
-  # Search for all tab characters in input.txt and write them out to output.txt
-    as 64-bit indices.
-  ./create_index --target=\t --size=64 input.txt output.txt
+Index file format
+=================
 
-Index file format:
-    The index file consists of a fixed size header, followed by a stream of 
-    index values. The header consists of a 4-byte magic number(0xba5eba11) for
-    endian checks, a 1-byte version number(currently 1), a 1-byte char for what
-    target was used and 1-byte padding. What follows is a stream of index 
-    values listing all the positions of a target in the input file.
+The index file consists of a fixed size header, followed by a stream of index values. The header consists of: 
+* 4-byte magic number(0xba5eba11) for endian checks
+* a 1-byte version number(currently 1)
+* a 1-byte char for what target was used
+* 1-byte padding. 
+
+What follows is a stream of index values listing all the positions of a target in the input file.
+    
+A fixed size header has a few advantages for instance, the number of occurrences of the target may be easily calculated from the file size and the information stored in the header. 
+
+Issues
+======
+ * Deal with UTF-8 properly at least, UTF-8 input files are should work, however a UTF-8 target can not be specified.
+ * No tools to deal with index files.
+ * No info to ensure you use the index on the correct file.
+ * Files larger than 2^64 bytes will cause overflow in a 64-bit unsigned integer.
+ * main file code is somewhat messy and not terribly extensible.
+
+Enhancements
+============
+ * Handle target strings via Boyer-Moore and lists of target strings via Aho-Corasick.
+ * More tests.
+ * Verbosity mode.
